@@ -1,0 +1,55 @@
+name: 'PR Quality Gate'
+description: 'Posts a code quality report (coverage, blast radius, performance, maintainability) as a PR comment for Python projects.'
+author: 'dlfelps'
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  github-token:
+    description: 'GitHub token for posting PR comments'
+    required: true
+    default: ${{ github.token }}
+
+  enable-coverage:
+    description: 'Run change risk / coverage analysis'
+    required: false
+    default: 'true'
+  enable-blast-radius:
+    description: 'Run blast radius / dependency analysis'
+    required: false
+    default: 'true'
+  enable-performance:
+    description: 'Run performance regression analysis'
+    required: false
+    default: 'true'
+  enable-maintainability:
+    description: 'Run maintainability index analysis'
+    required: false
+    default: 'true'
+
+  coverage-threshold:
+    description: 'Minimum % of changed lines covered before warning (0-100)'
+    required: false
+    default: '80'
+  maintainability-threshold:
+    description: 'Minimum radon maintainability index score (0-100)'
+    required: false
+    default: '65'
+  performance-threshold:
+    description: 'Max % slowdown allowed before flagging regression'
+    required: false
+    default: '20'
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  env:
+    GITHUB_TOKEN: ${{ inputs.github-token }}
+    INPUT_ENABLE_COVERAGE: ${{ inputs.enable-coverage }}
+    INPUT_ENABLE_BLAST_RADIUS: ${{ inputs.enable-blast-radius }}
+    INPUT_ENABLE_PERFORMANCE: ${{ inputs.enable-performance }}
+    INPUT_ENABLE_MAINTAINABILITY: ${{ inputs.enable-maintainability }}
+    INPUT_COVERAGE_THRESHOLD: ${{ inputs.coverage-threshold }}
+    INPUT_MAINTAINABILITY_THRESHOLD: ${{ inputs.maintainability-threshold }}
+    INPUT_PERFORMANCE_THRESHOLD: ${{ inputs.performance-threshold }}
