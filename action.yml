@@ -2,7 +2,7 @@ name: 'Slop Report'
 description: 'Automatic PR quality report for Python projects: coverage, blast radius, performance regression, and maintainability — posted as a comment on every PR.'
 author: 'dlfelps'
 branding:
-  icon: 'shield'
+  icon: 'github'
   color: 'blue'
 
 inputs:
