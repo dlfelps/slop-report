@@ -1,9 +1,11 @@
-"""Performance regression analysis: compare pytest durations against a cached baseline."""
+"""Performance regression analysis: run tests on base branch and HEAD, then compare."""
 
+import os
 import re
+import shutil
 import subprocess
+import tempfile
 
-from src import cache_client
 from src.report import MetricResult
 
 
@@ -19,19 +21,25 @@ def _parse_durations(output: str) -> dict[str, float]:
     return timings
 
 
-def run(base_ref: str, workspace: str, threshold: int) -> MetricResult:
-    baseline = cache_client.get_baseline(base_ref)
-
+def _run_pytest(cwd: str) -> tuple[dict[str, float], bool]:
+    """Run pytest --durations=0 in cwd. Returns (timings, timed_out)."""
     try:
         result = subprocess.run(
             ["pytest", "--tb=no", "-q", "--durations=0"],
-            cwd=workspace,
+            cwd=cwd,
             capture_output=True,
             text=True,
             timeout=300,
         )
-        output = result.stdout
+        return _parse_durations(result.stdout), False
     except subprocess.TimeoutExpired:
+        return {}, True
+
+
+def run(base_ref: str, workspace: str, threshold: int) -> MetricResult:
+    # Run tests on HEAD first
+    current, timed_out = _run_pytest(workspace)
+    if timed_out:
         return MetricResult(
             name="Performance",
             score="Timeout",
@@ -39,15 +47,39 @@ def run(base_ref: str, workspace: str, threshold: int) -> MetricResult:
             detail="Test suite timed out after 5 minutes",
         )
 
-    current = _parse_durations(output)
+    # Run tests on the base branch using a temporary git worktree
+    baseline: dict[str, float] | None = None
+    tmpdir = tempfile.mkdtemp()
+    worktree_path = os.path.join(tmpdir, "base")
+    try:
+        add = subprocess.run(
+            ["git", "-c", f"safe.directory={workspace}",
+             "worktree", "add", "--detach", worktree_path, f"origin/{base_ref}"],
+            cwd=workspace,
+            capture_output=True,
+            text=True,
+        )
+        if add.returncode == 0:
+            base_timings, _ = _run_pytest(worktree_path)
+            if base_timings:
+                baseline = base_timings
+    except Exception:
+        pass
+    finally:
+        subprocess.run(
+            ["git", "-c", f"safe.directory={workspace}",
+             "worktree", "remove", "--force", worktree_path],
+            cwd=workspace,
+            capture_output=True,
+        )
+        shutil.rmtree(tmpdir, ignore_errors=True)
 
     if not baseline:
-        cache_client.save_baseline(base_ref, current)
         return MetricResult(
             name="Performance",
-            score="Baseline set",
-            status="✅",
-            detail="No prior baseline found — current timings recorded for future comparisons",
+            score="N/A",
+            status="⚠️",
+            detail=f"Could not run tests on {base_ref} to establish baseline",
         )
 
     regressions: list[tuple[str, float, float]] = []
@@ -57,9 +89,6 @@ def run(base_ref: str, workspace: str, threshold: int) -> MetricResult:
             pct_change = (new_time - old_time) / old_time * 100
             if pct_change > threshold:
                 regressions.append((test_id, old_time, new_time))
-
-    # Update the baseline with latest timings
-    cache_client.save_baseline(base_ref, current)
 
     if not regressions:
         return MetricResult(
