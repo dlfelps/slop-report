@@ -12,11 +12,14 @@ def _run(cmd: list[str], cwd: str) -> str:
 
 def get_changed_python_files(base_ref: str, workspace: str) -> list[str]:
     """Return absolute paths of Python files changed relative to base_ref."""
-    output = _run(
-        ["git", "diff", "--name-only", "--diff-filter=ACM", f"origin/{base_ref}...HEAD", "--", "*.py"],
-        cwd=workspace,
-    )
-    files = [line.strip() for line in output.splitlines() if line.strip()]
+    try:
+        output = _run(
+            ["git", "diff", "--name-only", "--diff-filter=ACM", f"origin/{base_ref}...HEAD"],
+            cwd=workspace,
+        )
+    except subprocess.CalledProcessError:
+        return []
+    files = [line.strip() for line in output.splitlines() if line.strip() and line.strip().endswith(".py")]
     return [os.path.join(workspace, f) for f in files]
 
 
