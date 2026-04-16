@@ -6,14 +6,17 @@ import subprocess
 
 
 def _run(cmd: list[str], cwd: str) -> str:
-    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, check=True)
+    # Pass safe.directory so git works inside Docker containers where the
+    # workspace is owned by the runner user but the container runs as root.
+    safe_cmd = [cmd[0], "-c", f"safe.directory={cwd}"] + cmd[1:]
+    result = subprocess.run(safe_cmd, cwd=cwd, capture_output=True, text=True, check=True)
     return result.stdout
 
 
 def get_changed_python_files(base_ref: str, workspace: str) -> list[str]:
     """Return absolute paths of Python files changed relative to base_ref."""
     result = subprocess.run(
-        ["git", "diff", "--name-only", "--diff-filter=ACM", f"origin/{base_ref}...HEAD"],
+        ["git", "-c", f"safe.directory={workspace}", "diff", "--name-only", "--diff-filter=ACM", f"origin/{base_ref}...HEAD"],
         cwd=workspace,
         capture_output=True,
         text=True,
