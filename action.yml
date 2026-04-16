@@ -24,7 +24,7 @@ inputs:
     required: false
     default: 'true'
   enable-maintainability:
-    description: 'Run maintainability index analysis'
+    description: 'Run MI regression and new file quality analysis'
     required: false
     default: 'true'
 
@@ -32,10 +32,6 @@ inputs:
     description: 'Minimum % of changed lines covered before warning (0-100)'
     required: false
     default: '80'
-  maintainability-threshold:
-    description: 'Minimum radon maintainability index score (0-100)'
-    required: false
-    default: '65'
   performance-threshold:
     description: 'Max % slowdown allowed before flagging regression'
     required: false
@@ -51,5 +47,4 @@ runs:
     INPUT_ENABLE_PERFORMANCE: ${{ inputs.enable-performance }}
     INPUT_ENABLE_MAINTAINABILITY: ${{ inputs.enable-maintainability }}
     INPUT_COVERAGE_THRESHOLD: ${{ inputs.coverage-threshold }}
-    INPUT_MAINTAINABILITY_THRESHOLD: ${{ inputs.maintainability-threshold }}
     INPUT_PERFORMANCE_THRESHOLD: ${{ inputs.performance-threshold }}

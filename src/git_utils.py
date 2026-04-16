@@ -13,10 +13,10 @@ def _run(cmd: list[str], cwd: str) -> str:
     return result.stdout
 
 
-def get_changed_python_files(base_ref: str, workspace: str) -> list[str]:
-    """Return absolute paths of Python files changed relative to base_ref."""
+def _get_python_files_by_filter(base_ref: str, workspace: str, diff_filter: str) -> list[str]:
     result = subprocess.run(
-        ["git", "-c", f"safe.directory={workspace}", "diff", "--name-only", "--diff-filter=ACM", f"origin/{base_ref}...HEAD"],
+        ["git", "-c", f"safe.directory={workspace}", "diff", "--name-only",
+         f"--diff-filter={diff_filter}", f"origin/{base_ref}...HEAD"],
         cwd=workspace,
         capture_output=True,
         text=True,
@@ -28,8 +28,24 @@ def get_changed_python_files(base_ref: str, workspace: str) -> list[str]:
         raise subprocess.CalledProcessError(
             result.returncode, result.args, result.stdout, result.stderr
         )
-    files = [line.strip() for line in result.stdout.splitlines() if line.strip() and line.strip().endswith(".py")]
+    files = [line.strip() for line in result.stdout.splitlines()
+             if line.strip() and line.strip().endswith(".py")]
     return [os.path.join(workspace, f) for f in files]
+
+
+def get_changed_python_files(base_ref: str, workspace: str) -> list[str]:
+    """Return absolute paths of Python files added, copied, or modified in this PR."""
+    return _get_python_files_by_filter(base_ref, workspace, "ACM")
+
+
+def get_modified_python_files(base_ref: str, workspace: str) -> list[str]:
+    """Return absolute paths of Python files modified (not newly added) in this PR."""
+    return _get_python_files_by_filter(base_ref, workspace, "M")
+
+
+def get_added_python_files(base_ref: str, workspace: str) -> list[str]:
+    """Return absolute paths of Python files newly added in this PR."""
+    return _get_python_files_by_filter(base_ref, workspace, "A")
 
 
 def get_changed_line_ranges(base_ref: str, filepath: str, workspace: str) -> set[int]:

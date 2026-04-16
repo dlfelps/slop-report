@@ -1,54 +1,138 @@
 """Tests for src/metrics/maintainability.py"""
 
-import json
-from unittest.mock import patch, MagicMock
-import subprocess
+from unittest.mock import patch
 
-from src.metrics.maintainability import run
+from src.metrics.maintainability import run_regression, run_new_files
 
 
-def _mock_run(stdout: str):
-    m = MagicMock()
-    m.stdout = stdout
-    m.returncode = 0
-    return m
+# ---------------------------------------------------------------------------
+# run_regression
+# ---------------------------------------------------------------------------
 
-
-def test_run_no_changed_files():
-    with patch("src.metrics.maintainability.get_changed_python_files", return_value=[]):
-        result = run("main", "/ws", threshold=65)
+def test_regression_no_modified_files():
+    with patch("src.metrics.maintainability.get_modified_python_files", return_value=[]):
+        result = run_regression("main", "/ws")
     assert result.score == "N/A"
     assert result.status == "✅"
 
 
-def test_run_above_threshold():
-    mi_output = json.dumps({"/ws/foo.py": {"mi": 80.0, "rank": "A"}})
-    with patch("src.metrics.maintainability.get_changed_python_files", return_value=["/ws/foo.py"]):
-        with patch("subprocess.run", return_value=_mock_run(mi_output)):
-            result = run("main", "/ws", threshold=65)
+def test_regression_improvement():
+    """File improved 70 → 80 (+14%): no regression, ✅."""
+    with patch("src.metrics.maintainability.get_modified_python_files", return_value=["/ws/foo.py"]):
+        with patch("src.metrics.maintainability._radon_scores", return_value={"/ws/foo.py": 80.0}):
+            with patch("src.metrics.maintainability._base_mi", return_value=70.0):
+                result = run_regression("main", "/ws")
     assert result.status == "✅"
-    assert "80" in result.score
+    assert result.score.startswith("+")
 
 
-def test_run_slightly_below_threshold():
-    mi_output = json.dumps({"/ws/foo.py": {"mi": 58.0, "rank": "B"}})
-    with patch("src.metrics.maintainability.get_changed_python_files", return_value=["/ws/foo.py"]):
-        with patch("subprocess.run", return_value=_mock_run(mi_output)):
-            result = run("main", "/ws", threshold=65)
+def test_regression_slight():
+    """File regressed 65 → 60 (−7.7%): ⚠️."""
+    with patch("src.metrics.maintainability.get_modified_python_files", return_value=["/ws/foo.py"]):
+        with patch("src.metrics.maintainability._radon_scores", return_value={"/ws/foo.py": 60.0}):
+            with patch("src.metrics.maintainability._base_mi", return_value=65.0):
+                result = run_regression("main", "/ws")
     assert result.status == "⚠️"
+    assert result.score.startswith("-")
 
 
-def test_run_well_below_threshold():
-    mi_output = json.dumps({"/ws/foo.py": {"mi": 30.0, "rank": "C"}})
-    with patch("src.metrics.maintainability.get_changed_python_files", return_value=["/ws/foo.py"]):
-        with patch("subprocess.run", return_value=_mock_run(mi_output)):
-            result = run("main", "/ws", threshold=65)
+def test_regression_severe():
+    """File regressed 65 → 40 (−38%): 🛑."""
+    with patch("src.metrics.maintainability.get_modified_python_files", return_value=["/ws/foo.py"]):
+        with patch("src.metrics.maintainability._radon_scores", return_value={"/ws/foo.py": 40.0}):
+            with patch("src.metrics.maintainability._base_mi", return_value=65.0):
+                result = run_regression("main", "/ws")
     assert result.status == "🛑"
 
 
-def test_run_radon_failure():
-    with patch("src.metrics.maintainability.get_changed_python_files", return_value=["/ws/foo.py"]):
-        with patch("subprocess.run", side_effect=subprocess.CalledProcessError(1, "radon")):
-            result = run("main", "/ws", threshold=65)
+def test_regression_picks_worst():
+    """Multiple files: worst case drives the result."""
+    files = ["/ws/a.py", "/ws/b.py"]
+    # a.py: 80 → 85 (+6%)
+    # b.py: 70 → 55 (−21%)  ← worst
+    call_count = [0]
+
+    def mock_radon(file_list):
+        call_count[0] += 1
+        return {file_list[0]: 85.0 if call_count[0] == 1 else 55.0}
+
+    def mock_base(base_ref, workspace, abs_path):
+        return 80.0 if abs_path == "/ws/a.py" else 70.0
+
+    with patch("src.metrics.maintainability.get_modified_python_files", return_value=files):
+        with patch("src.metrics.maintainability._radon_scores", side_effect=mock_radon):
+            with patch("src.metrics.maintainability._base_mi", side_effect=mock_base):
+                result = run_regression("main", "/ws")
+
+    assert result.status == "🛑"
+    assert "b.py" in result.detail
+
+
+def test_regression_cannot_compute_mi():
+    """If radon returns nothing for all files, report ⚠️."""
+    with patch("src.metrics.maintainability.get_modified_python_files", return_value=["/ws/foo.py"]):
+        with patch("src.metrics.maintainability._radon_scores", return_value={}):
+            with patch("src.metrics.maintainability._base_mi", return_value=None):
+                result = run_regression("main", "/ws")
+    assert result.score == "N/A"
     assert result.status == "⚠️"
-    assert "Error" in result.score
+
+
+# ---------------------------------------------------------------------------
+# run_new_files
+# ---------------------------------------------------------------------------
+
+def test_new_files_none_added():
+    with patch("src.metrics.maintainability.get_added_python_files", return_value=[]):
+        result = run_new_files("main", "/ws")
+    assert result.score == "N/A"
+    assert result.status == "✅"
+
+
+def test_new_files_better_than_main():
+    """New files avg 85, main avg 75 → ratio 1.13 → ✅."""
+    with patch("src.metrics.maintainability.get_added_python_files", return_value=["/ws/new.py"]):
+        with patch("src.metrics.maintainability._radon_scores", return_value={"/ws/new.py": 85.0}):
+            with patch("src.metrics.maintainability._extract_base", return_value=(True, "")):
+                with patch("src.metrics.maintainability._radon_scores_dir", return_value=[75.0, 75.0]):
+                    with patch("tempfile.mkdtemp", return_value="/tmp/fake"):
+                        with patch("shutil.rmtree"):
+                            result = run_new_files("main", "/ws")
+    assert result.status == "✅"
+    assert float(result.score.rstrip("×")) >= 1.0
+
+
+def test_new_files_slightly_worse():
+    """New files avg 68, main avg 75 → ratio 0.91 → ⚠️."""
+    with patch("src.metrics.maintainability.get_added_python_files", return_value=["/ws/new.py"]):
+        with patch("src.metrics.maintainability._radon_scores", return_value={"/ws/new.py": 68.0}):
+            with patch("src.metrics.maintainability._extract_base", return_value=(True, "")):
+                with patch("src.metrics.maintainability._radon_scores_dir", return_value=[75.0, 75.0]):
+                    with patch("tempfile.mkdtemp", return_value="/tmp/fake"):
+                        with patch("shutil.rmtree"):
+                            result = run_new_files("main", "/ws")
+    assert result.status == "⚠️"
+
+
+def test_new_files_much_worse():
+    """New files avg 55, main avg 75 → ratio 0.73 → 🛑."""
+    with patch("src.metrics.maintainability.get_added_python_files", return_value=["/ws/new.py"]):
+        with patch("src.metrics.maintainability._radon_scores", return_value={"/ws/new.py": 55.0}):
+            with patch("src.metrics.maintainability._extract_base", return_value=(True, "")):
+                with patch("src.metrics.maintainability._radon_scores_dir", return_value=[75.0, 75.0]):
+                    with patch("tempfile.mkdtemp", return_value="/tmp/fake"):
+                        with patch("shutil.rmtree"):
+                            result = run_new_files("main", "/ws")
+    assert result.status == "🛑"
+
+
+def test_new_files_extract_fails():
+    """git archive failure → ⚠️ with error in detail."""
+    with patch("src.metrics.maintainability.get_added_python_files", return_value=["/ws/new.py"]):
+        with patch("src.metrics.maintainability._radon_scores", return_value={"/ws/new.py": 75.0}):
+            with patch("src.metrics.maintainability._extract_base", return_value=(False, "fatal: bad object")):
+                with patch("tempfile.mkdtemp", return_value="/tmp/fake"):
+                    with patch("shutil.rmtree"):
+                        result = run_new_files("main", "/ws")
+    assert result.status == "⚠️"
+    assert "fatal" in result.detail

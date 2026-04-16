@@ -1,4 +1,4 @@
-"""Main entrypoint for the PR Quality Gate GitHub Action."""
+"""Main entrypoint for the Slop Report GitHub Action."""
 
 import json
 import os
@@ -63,7 +63,6 @@ def main() -> None:
     enable_mi = _bool_env("INPUT_ENABLE_MAINTAINABILITY")
 
     cov_threshold = _int_env("INPUT_COVERAGE_THRESHOLD", 80)
-    mi_threshold = _int_env("INPUT_MAINTAINABILITY_THRESHOLD", 65)
     perf_threshold = _int_env("INPUT_PERFORMANCE_THRESHOLD", 20)
 
     results: list[MetricResult] = []
@@ -87,16 +86,17 @@ def main() -> None:
         results.append(MetricResult("Performance", "Disabled", "—", "Metric disabled", skipped=True))
 
     if enable_mi:
-        print("Running maintainability analysis...")
-        results.append(maintainability.run(base_ref, workspace, mi_threshold))
+        print("Running maintainability regression analysis...")
+        results.append(maintainability.run_regression(base_ref, workspace))
+        print("Running new file quality analysis...")
+        results.append(maintainability.run_new_files(base_ref, workspace))
     else:
-        results.append(MetricResult("Maintainability", "Disabled", "—", "Metric disabled", skipped=True))
+        results.append(MetricResult("MI Regression", "Disabled", "—", "Metric disabled", skipped=True))
+        results.append(MetricResult("New File Quality", "Disabled", "—", "Metric disabled", skipped=True))
 
     thresholds = {}
     if enable_coverage:
         thresholds["coverage"] = f"{cov_threshold}%"
-    if enable_mi:
-        thresholds["MI"] = str(mi_threshold)
     if enable_perf:
         thresholds["perf"] = f"{perf_threshold}%"
 

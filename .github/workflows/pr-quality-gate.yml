@@ -1,4 +1,4 @@
-name: PR Quality Gate
+name: Slop Report
 
 on:
   pull_request:
@@ -7,20 +7,18 @@ on:
 permissions:
   pull-requests: write
   contents: read
-  actions: write
 
 jobs:
-  quality-gate:
+  slop-report:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Run PR Quality Gate
+      - name: Run Slop Report
         uses: ./
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           coverage-threshold: '80'
-          maintainability-threshold: '65'
           performance-threshold: '20'
