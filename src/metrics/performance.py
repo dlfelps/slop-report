@@ -53,7 +53,7 @@ def run(base_ref: str, workspace: str, threshold: int) -> MetricResult:
     worktree_path = os.path.join(tmpdir, "base")
     try:
         add = subprocess.run(
-            ["git", "-c", f"safe.directory={workspace}",
+            ["git", "-c", "safe.directory=*",
              "worktree", "add", "--detach", worktree_path, f"origin/{base_ref}"],
             cwd=workspace,
             capture_output=True,
@@ -67,7 +67,7 @@ def run(base_ref: str, workspace: str, threshold: int) -> MetricResult:
         pass
     finally:
         subprocess.run(
-            ["git", "-c", f"safe.directory={workspace}",
+            ["git", "-c", "safe.directory=*",
              "worktree", "remove", "--force", worktree_path],
             cwd=workspace,
             capture_output=True,
