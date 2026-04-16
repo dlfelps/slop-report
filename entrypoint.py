@@ -87,7 +87,7 @@ def main() -> None:
 
     if enable_mi:
         print("Running maintainability regression analysis...")
-        results.append(maintainability.run_regression(base_ref, workspace))
+        results.append(maintainability.run_regression(base_ref, workspace, repo, pr_number))
         print("Running new file quality analysis...")
         results.append(maintainability.run_new_files(base_ref, workspace))
     else:

@@ -1,5 +1,6 @@
 """Maintainability metrics: regression on modified files and quality of new files."""
 
+import hashlib
 import io
 import json
 import os
@@ -86,7 +87,7 @@ def _extract_base(base_ref: str, workspace: str, dest: str) -> tuple[bool, str]:
         return False, str(e)[:200]
 
 
-def run_regression(base_ref: str, workspace: str) -> MetricResult:
+def run_regression(base_ref: str, workspace: str, repo: str = "", pr_number: int = 0) -> MetricResult:
     """Worst-case absolute MI point change across modified files only."""
     modified = get_modified_python_files(base_ref, workspace)
     if not modified:
@@ -97,13 +98,14 @@ def run_regression(base_ref: str, workspace: str) -> MetricResult:
             detail="No modified Python files",
         )
 
-    changes: list[tuple[str, float, float, float]] = []  # (filename, base_mi, head_mi, diff)
+    changes: list[tuple[str, str, float, float, float]] = []  # (filename, rel_path, base_mi, head_mi, diff)
     for abs_path in modified:
         head_scores = _radon_scores([abs_path])
         head_mi = next(iter(head_scores.values()), None)
         base = _base_mi(base_ref, workspace, abs_path)
         if head_mi is not None and base is not None:
-            changes.append((os.path.basename(abs_path), base, head_mi, head_mi - base))
+            rel = os.path.relpath(abs_path, workspace)
+            changes.append((os.path.basename(abs_path), rel, base, head_mi, head_mi - base))
 
     if not changes:
         return MetricResult(
@@ -113,18 +115,24 @@ def run_regression(base_ref: str, workspace: str) -> MetricResult:
             detail="Could not compute MI for any modified file",
         )
 
-    worst = min(changes, key=lambda x: x[3])
-    worst_name, worst_base, worst_head, worst_diff = worst
+    worst = min(changes, key=lambda x: x[4])
+    worst_name, worst_rel, worst_base, worst_head, worst_diff = worst
+
+    if repo and pr_number:
+        anchor = hashlib.md5(worst_rel.encode()).hexdigest()
+        file_ref = f"[{worst_name}](https://github.com/{repo}/pull/{pr_number}/files#diff-{anchor})"
+    else:
+        file_ref = worst_name
 
     if worst_diff >= 0:
         status = "✅"
         detail = f"No regression detected ({len(changes)} file(s) checked)"
     elif worst_diff >= -10:
         status = "⚠️"
-        detail = f"Worst: {worst_name} ({worst_base:.0f} → {worst_head:.0f})"
+        detail = f"Worst: {file_ref} ({worst_base:.0f} → {worst_head:.0f})"
     else:
         status = "🛑"
-        detail = f"Worst: {worst_name} ({worst_base:.0f} → {worst_head:.0f})"
+        detail = f"Worst: {file_ref} ({worst_base:.0f} → {worst_head:.0f})"
 
     return MetricResult(
         name="MI Regression",

@@ -71,6 +71,16 @@ def test_regression_picks_worst():
     assert "b.py" in result.detail
 
 
+def test_regression_detail_links_to_diff():
+    """When repo and pr_number are supplied, detail contains a GitHub diff link."""
+    with patch("src.metrics.maintainability.get_modified_python_files", return_value=["/ws/src/foo.py"]):
+        with patch("src.metrics.maintainability._radon_scores", return_value={"/ws/src/foo.py": 40.0}):
+            with patch("src.metrics.maintainability._base_mi", return_value=65.0):
+                result = run_regression("main", "/ws", repo="owner/repo", pr_number=42)
+    assert "https://github.com/owner/repo/pull/42/files#diff-" in result.detail
+    assert "[foo.py]" in result.detail
+
+
 def test_regression_cannot_compute_mi():
     """If radon returns nothing for all files, report ⚠️."""
     with patch("src.metrics.maintainability.get_modified_python_files", return_value=["/ws/foo.py"]):
