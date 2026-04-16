@@ -1,4 +1,4 @@
-"""Post or update the Quality Gate comment on a pull request."""
+"""Post or update the Slop Report comment on a pull request."""
 
 import requests
 from src.report import MARKER

@@ -1,4 +1,4 @@
-"""Main entrypoint for the PR Quality Gate GitHub Action."""
+"""Main entrypoint for the Slop Report GitHub Action."""
 
 import json
 import os

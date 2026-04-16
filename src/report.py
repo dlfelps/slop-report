@@ -29,7 +29,7 @@ def render(results: list[MetricResult], thresholds: dict) -> str:
 
     return (
         f"{MARKER}\n"
-        "## PR Quality Gate Report\n\n"
+        "## Slop Report\n\n"
         "| Metric | Score | Status | Details |\n"
         "|--------|-------|--------|----------|\n"
         f"{rows}\n\n"
