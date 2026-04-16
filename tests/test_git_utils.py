@@ -46,11 +46,24 @@ def test_get_changed_python_files_filters_non_py():
     assert files == ["/workspace/src/foo.py", "/workspace/src/bar.py"]
 
 
-def test_get_changed_python_files_git_error_returns_empty():
-    err = subprocess.CalledProcessError(1, ["git", "diff"])
-    with patch("subprocess.run", side_effect=err):
+def test_get_changed_python_files_exit_code_1_returns_files():
+    """Exit code 1 from git diff is valid in some builds — stdout should still be used."""
+    result = subprocess.CompletedProcess(
+        args=["git", "diff"], returncode=1, stdout=SAMPLE_DIFF_NAMES, stderr=""
+    )
+    with patch("subprocess.run", return_value=result):
         files = get_changed_python_files("main", "/workspace")
-    assert files == []
+    assert files == ["/workspace/src/foo.py", "/workspace/src/bar.py"]
+
+
+def test_get_changed_python_files_fatal_error_raises():
+    """Exit codes ≥ 2 (e.g. 128 for bad ref) should raise CalledProcessError."""
+    result = subprocess.CompletedProcess(
+        args=["git", "diff"], returncode=128, stdout="", stderr="fatal: bad object"
+    )
+    with patch("subprocess.run", return_value=result):
+        with pytest.raises(subprocess.CalledProcessError):
+            get_changed_python_files("main", "/workspace")
 
 
 def test_get_changed_line_ranges():

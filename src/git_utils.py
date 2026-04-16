@@ -12,14 +12,20 @@ def _run(cmd: list[str], cwd: str) -> str:
 
 def get_changed_python_files(base_ref: str, workspace: str) -> list[str]:
     """Return absolute paths of Python files changed relative to base_ref."""
-    try:
-        output = _run(
-            ["git", "diff", "--name-only", "--diff-filter=ACM", f"origin/{base_ref}...HEAD"],
-            cwd=workspace,
+    result = subprocess.run(
+        ["git", "diff", "--name-only", "--diff-filter=ACM", f"origin/{base_ref}...HEAD"],
+        cwd=workspace,
+        capture_output=True,
+        text=True,
+    )
+    # git diff exits 0 (no diffs) or 1 (diffs found) in some builds even without
+    # --exit-code. Both are valid — use stdout either way. Codes ≥ 2 are fatal
+    # errors (bad ref, not a git repo, etc.) and should propagate.
+    if result.returncode >= 2:
+        raise subprocess.CalledProcessError(
+            result.returncode, result.args, result.stdout, result.stderr
         )
-    except subprocess.CalledProcessError:
-        return []
-    files = [line.strip() for line in output.splitlines() if line.strip() and line.strip().endswith(".py")]
+    files = [line.strip() for line in result.stdout.splitlines() if line.strip() and line.strip().endswith(".py")]
     return [os.path.join(workspace, f) for f in files]
 
 
