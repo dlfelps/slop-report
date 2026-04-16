@@ -43,7 +43,7 @@ def test_run_well_below_threshold():
     with patch("src.metrics.maintainability.get_changed_python_files", return_value=["/ws/foo.py"]):
         with patch("subprocess.run", return_value=_mock_run(mi_output)):
             result = run("main", "/ws", threshold=65)
-    assert result.status == "📉"
+    assert result.status == "🛑"
 
 
 def test_run_radon_failure():

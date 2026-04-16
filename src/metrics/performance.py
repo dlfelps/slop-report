@@ -122,6 +122,6 @@ def run(base_ref: str, workspace: str, threshold: int) -> MetricResult:
     return MetricResult(
         name="Performance",
         score=f"+{worst_pct:.0f}% slowdown",
-        status="📉",
+        status="🛑",
         detail=detail,
     )

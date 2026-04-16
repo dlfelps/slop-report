@@ -60,7 +60,7 @@ def run(base_ref: str, workspace: str, threshold: int) -> MetricResult:
         status = "⚠️"
         detail = f"Slightly below threshold ({threshold})"
     else:
-        status = "📉"
+        status = "🛑"
         detail = f"Well below threshold ({threshold})"
 
     return MetricResult(

@@ -10,7 +10,7 @@ MARKER = "<!-- slop-report-marker -->"
 class MetricResult:
     name: str
     score: str
-    status: str   # emoji: ✅ ⚠️ 📉
+    status: str   # emoji: ✅ ⚠️ 🛑
     detail: str
     skipped: bool = False
 

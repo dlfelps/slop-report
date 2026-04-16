@@ -89,7 +89,7 @@ def run(base_ref: str, workspace: str) -> MetricResult:
         status = "⚠️"
         risk = "Medium"
     else:
-        status = "📉"
+        status = "🛑"
         risk = "High"
 
     sample = sorted(affected)[:5]

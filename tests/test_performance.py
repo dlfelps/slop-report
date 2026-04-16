@@ -103,5 +103,5 @@ def test_run_regression_detected():
                 with patch("shutil.rmtree"):
                     result = run("main", "/ws", threshold=20)
 
-    assert result.status == "📉"
+    assert result.status == "🛑"
     assert "regression" in result.detail

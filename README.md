@@ -7,7 +7,7 @@ Slop Report posts a code quality summary as a comment on every pull request — 
 | Metric | Score | Status | Details |
 |--------|-------|--------|---------|
 | Change Risk | 72% covered | ⚠️ | 28% of changed lines lack test coverage |
-| Blast Radius | 12 modules | 📉 | High impact: auth, api, models affected |
+| Blast Radius | 12 modules | 🛑 | High impact: auth, api, models affected |
 | Performance | No regressions | ✅ | No tests exceeded 20% slowdown threshold |
 | Maintainability | 74 / 100 | ✅ | Above threshold (65) |
 
@@ -107,7 +107,19 @@ Parses every Python file in the repository with Python's `ast` module to build a
 Runs `pytest --durations=0` on both the base branch and the PR branch using `git archive`, then compares per-test timings. Tests that slowed by more than the configured threshold are flagged, with the worst offender highlighted in the report.
 
 ### Maintainability
-Runs `radon mi` on the changed files and reports the average Maintainability Index score (0–100). Scores ≥ threshold are ✅, within 10 points below are ⚠️, and further below are 📉.
+Runs `radon mi` on the changed files and reports the average Maintainability Index score (0–100). Scores ≥ threshold are ✅, within 10 points below are ⚠️, and further below are 🛑.
+
+---
+
+## Assumptions & Limitations
+
+- **Python only** — all analysis (coverage, blast radius, maintainability) targets `.py` files. Other languages are ignored.
+- **pytest or unittest** — the test runner must be one of these two. Coverage is collected via `coverage run -m pytest`; `unittest` is the fallback if pytest is not installed.
+- **Performance baseline requires a shared history** — the base branch must be reachable via `git archive origin/<base>`. Shallow clones (`fetch-depth: 1`) will cause the performance metric to report N/A; use `fetch-depth: 0`.
+- **Performance compares only tests present in both branches** — tests added or removed in the PR are excluded from the regression comparison.
+- **Blast radius uses static import analysis** — dynamic imports (`importlib`, `__import__`) and conditional imports are not detected.
+- **Maintainability scores very short files leniently** — `radon` may assign a high score to files with minimal content; the metric is most meaningful on files with ≥ 10 lines.
+- **No blocking** — Slop Report never fails the workflow. It only posts an informational comment.
 
 ---
 
@@ -125,4 +137,4 @@ Runs `radon mi` on the changed files and reports the average Maintainability Ind
 |------|---------|
 | ✅ | Metric is within acceptable range |
 | ⚠️ | Metric is below threshold or needs attention |
-| 📉 | Significant issue detected |
+| 🛑 | Significant issue detected |

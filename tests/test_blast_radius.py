@@ -64,5 +64,5 @@ def test_run_risk_tiers(tmp_path):
     with patch("src.metrics.blast_radius.get_changed_python_files", return_value=[str(changed)]):
         result = run("main", str(tmp_path))
 
-    assert result.status == "📉"
+    assert result.status == "🛑"
     assert int(result.score.split()[0]) >= 10
