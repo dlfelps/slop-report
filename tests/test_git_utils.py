@@ -39,6 +39,20 @@ def test_get_changed_python_files_empty():
     assert files == []
 
 
+def test_get_changed_python_files_filters_non_py():
+    mixed = "src/foo.py\nREADME.md\nsrc/bar.py\nDockerfile\n"
+    with patch("subprocess.run", return_value=_make_result(mixed)):
+        files = get_changed_python_files("main", "/workspace")
+    assert files == ["/workspace/src/foo.py", "/workspace/src/bar.py"]
+
+
+def test_get_changed_python_files_git_error_returns_empty():
+    err = subprocess.CalledProcessError(1, ["git", "diff"])
+    with patch("subprocess.run", side_effect=err):
+        files = get_changed_python_files("main", "/workspace")
+    assert files == []
+
+
 def test_get_changed_line_ranges():
     with patch("subprocess.run", return_value=_make_result(SAMPLE_DIFF_PATCH)):
         lines = get_changed_line_ranges("main", "/workspace/src/foo.py", "/workspace")
